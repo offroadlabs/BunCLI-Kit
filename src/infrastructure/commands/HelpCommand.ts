@@ -1,5 +1,5 @@
-import { CommandPort } from '../../domain/ports/CommandPort';
-import { LoggerService } from '../../application/services/LoggerService';
+import { CommandPort } from '@/domain/ports/CommandPort';
+import { LoggerService } from '@/application/services/LoggerService';
 
 export class HelpCommand implements CommandPort {
   private readonly logger;

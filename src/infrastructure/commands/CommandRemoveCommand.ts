@@ -1,9 +1,9 @@
-import { CommandPort } from '../../domain/ports/CommandPort';
+import { CommandPort } from '@/domain/ports/CommandPort';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { PackageJsonSchema, CommandRegistryServiceSchema } from '../../domain/schemas/FileSchemas';
-import { LoggerService } from '../../application/services/LoggerService';
+import { PackageJsonSchema, CommandRegistryServiceSchema } from '@/domain/schemas/FileSchemas';
+import { LoggerService } from '@/application/services/LoggerService';
 
 export class CommandRemoveCommand implements CommandPort {
   private readonly logger;
@@ -67,7 +67,7 @@ export class CommandRemoveCommand implements CommandPort {
         line =>
           line.includes('import') &&
           line.includes(`{ ${className} }`) &&
-          line.includes(`../../infrastructure/commands/${className}`)
+          line.includes(`@/infrastructure/commands/${className}`)
       );
 
       if (importIndex !== -1) {

@@ -1,4 +1,4 @@
-import { LoggerPort } from '../../domain/ports/LoggerPort';
+import { LoggerPort } from '@/domain/ports/LoggerPort';
 
 enum ConsoleColor {
   Reset = '\x1b[0m',

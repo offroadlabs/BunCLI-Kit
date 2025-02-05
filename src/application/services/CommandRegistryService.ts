@@ -1,7 +1,7 @@
 import { CommandService } from './CommandService';
-import { CommandCreateCommand } from '../../infrastructure/commands/CommandCreateCommand';
-import { CommandRemoveCommand } from '../../infrastructure/commands/CommandRemoveCommand';
-import { HelpCommand } from '../../infrastructure/commands/HelpCommand';
+import { CommandCreateCommand } from '@/infrastructure/commands/CommandCreateCommand';
+import { CommandRemoveCommand } from '@/infrastructure/commands/CommandRemoveCommand';
+import { HelpCommand } from '@/infrastructure/commands/HelpCommand';
 
 export class CommandRegistryService {
   private static instance: CommandRegistryService | null = null;

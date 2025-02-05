@@ -1,5 +1,5 @@
-import { LoggerPort } from '../../domain/ports/LoggerPort';
-import { ConsoleLogger } from '../../infrastructure/logger/ConsoleLogger';
+import { LoggerPort } from '@/domain/ports/LoggerPort';
+import { ConsoleLogger } from '@/infrastructure/logger/ConsoleLogger';
 
 export class LoggerService {
   private static instance: LoggerService | null = null;

@@ -1,9 +1,9 @@
-import { CommandPort } from '../../domain/ports/CommandPort';
+import { CommandPort } from '@/domain/ports/CommandPort';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { PackageJsonSchema, CommandRegistryServiceSchema } from '../../domain/schemas/FileSchemas';
-import { LoggerService } from '../../application/services/LoggerService';
+import { PackageJsonSchema, CommandRegistryServiceSchema } from '@/domain/schemas/FileSchemas';
+import { LoggerService } from '@/application/services/LoggerService';
 
 export class CommandCreateCommand implements CommandPort {
   private readonly logger;
@@ -33,8 +33,8 @@ export class CommandCreateCommand implements CommandPort {
     const className = this.toPascalCase(commandName) + 'Command';
     const filePath = path.join('src', 'infrastructure', 'commands', `${className}.ts`);
 
-    const template = `import { CommandPort } from "../../domain/ports/CommandPort";
-import { LoggerService } from "../../application/services/LoggerService";
+    const template = `import { CommandPort } from "@/domain/ports/CommandPort";
+import { LoggerService } from "@/application/services/LoggerService";
 
 export class ${className} implements CommandPort {
     private readonly logger;
@@ -85,7 +85,7 @@ export class ${className} implements CommandPort {
       const content = fs.readFileSync(registryPath, 'utf-8');
       const validContent = CommandRegistryServiceSchema.parse(content);
 
-      const importStatement = `import { ${className} } from '../../infrastructure/commands/${className}';\n`;
+      const importStatement = `import { ${className} } from '@/infrastructure/commands/${className}';\n`;
       let newContent = validContent;
 
       if (!validContent.includes(importStatement)) {
