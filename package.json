@@ -1,0 +1,25 @@
+{
+  "name": "buncli-kit",
+  "version": "1.0.0",
+  "description": "A toolkit for creating CLI commands with Bun, TypeScript and Zod",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "help": "bun run src/index.ts help",
+    "command:create": "bun run src/index.ts command:create",
+    "command:remove": "bun run src/index.ts command:remove",
+    "generate": "bun run src/index.ts generate",
+    "lint": "eslint . --cache"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.19.0",
+    "@typescript-eslint/eslint-plugin": "^8.23.0",
+    "@typescript-eslint/parser": "^8.23.0",
+    "eslint": "^9.19.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "zod": "^3.24.1"
+  }
+}
