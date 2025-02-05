@@ -30,3 +30,13 @@ export const PackageJsonSchema = z
   .strict();
 
 export const IndexContentSchema = z.string().min(1);
+
+export const CommandRegistryServiceSchema = z
+  .string()
+  .regex(/export class CommandRegistryService/)
+  .and(z.string().min(1));
+
+export const CommandRegistryImportSchema = z
+  .string()
+  .regex(/import.*CommandRegistryService/)
+  .and(z.string().min(1));

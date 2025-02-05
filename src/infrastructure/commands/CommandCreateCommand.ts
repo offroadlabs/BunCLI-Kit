@@ -2,7 +2,7 @@ import { CommandPort } from '../../domain/ports/CommandPort';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { PackageJsonSchema, IndexContentSchema } from '../../domain/schemas/FileSchemas';
+import { PackageJsonSchema, CommandRegistryServiceSchema } from '../../domain/schemas/FileSchemas';
 import { LoggerService } from '../../application/services/LoggerService';
 
 export class CommandCreateCommand implements CommandPort {
@@ -51,12 +51,12 @@ export class ${className} implements CommandPort {
     }
 
     getDescription(): string {
-        return 'Description de la commande ${commandName}';
+        return 'Description of the ${commandName} command';
     }
 
     async execute(args: string[]): Promise<void> {
-        // Implémentez votre logique ici
-        this.logger.info('${commandName} command executed');
+        // Implement your logic here
+        this.logger.info('${commandName} command executed', args);
     }
 }
 `;
@@ -65,7 +65,7 @@ export class ${className} implements CommandPort {
       fs.writeFileSync(filePath, template);
       this.logger.success(`Command ${className} successfully created in ${filePath}`);
 
-      this.updateIndexFile(className, commandName);
+      this.updateCommandRegistryService(className, commandName);
       this.updatePackageJson(commandName);
     } catch (error) {
       this.logger.error('Error while creating command:', error);
@@ -79,43 +79,43 @@ export class ${className} implements CommandPort {
       .join('');
   }
 
-  private updateIndexFile(className: string, commandName: string): void {
-    const indexPath = path.join('src', 'index.ts');
+  private updateCommandRegistryService(className: string, commandName: string): void {
+    const registryPath = path.join('src', 'application', 'services', 'CommandRegistryService.ts');
     try {
-      const content = fs.readFileSync(indexPath, 'utf-8');
-      const validContent = IndexContentSchema.parse(content);
+      const content = fs.readFileSync(registryPath, 'utf-8');
+      const validContent = CommandRegistryServiceSchema.parse(content);
 
-      const importStatement = `import { ${className} } from "./infrastructure/commands/${className}";\n`;
+      const importStatement = `import { ${className} } from '../../infrastructure/commands/${className}';\n`;
       let newContent = validContent;
 
       if (!validContent.includes(importStatement)) {
-        const importIndex = validContent.lastIndexOf('import');
-        const endOfImports = validContent.indexOf('\n', importIndex) + 1;
+        const lastImportIndex = validContent.lastIndexOf('import');
+        const endOfImports = validContent.indexOf('\n', lastImportIndex) + 1;
         newContent =
           validContent.slice(0, endOfImports) + importStatement + validContent.slice(endOfImports);
       }
 
-      const commandRegistration = `  new ${className}(),\n`;
-      const serviceIndex = newContent.indexOf('const commandService = new CommandService([');
+      const commandInstantiation = `new ${className}(),\n`;
+      const constructorIndex = newContent.indexOf('this.commandService = new CommandService([');
 
-      if (serviceIndex !== -1) {
-        const insertIndex = newContent.indexOf(']', serviceIndex);
-        if (!newContent.includes(commandRegistration) && insertIndex !== -1) {
+      if (constructorIndex !== -1) {
+        const insertIndex = newContent.indexOf(']', constructorIndex);
+        if (!newContent.includes(commandInstantiation) && insertIndex !== -1) {
           newContent =
             newContent.slice(0, insertIndex) +
-            (newContent[insertIndex - 1] === '[' ? '' : '    ') +
-            commandRegistration +
+            (newContent[insertIndex - 1] === '[' ? '' : '      ') +
+            commandInstantiation +
             newContent.slice(insertIndex);
         }
       }
 
-      fs.writeFileSync(indexPath, newContent);
-      this.logger.success(`Command ${commandName} registered in index.ts`);
+      fs.writeFileSync(registryPath, newContent);
+      this.logger.success(`Command ${commandName} registered in CommandRegistryService.ts`);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        this.logger.error('Invalid index.ts file format:', error.errors);
+        this.logger.error('Invalid CommandRegistryService.ts file format:', error.errors);
       } else {
-        this.logger.error('Error while updating index.ts:', error);
+        this.logger.error('Error while updating CommandRegistryService.ts:', error);
       }
     }
   }

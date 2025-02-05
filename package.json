@@ -8,7 +8,6 @@
     "help": "bun run src/index.ts help",
     "command:create": "bun run src/index.ts command:create",
     "command:remove": "bun run src/index.ts command:remove",
-    "generate": "bun run src/index.ts generate",
     "lint": "eslint . --cache"
   },
   "dependencies": {

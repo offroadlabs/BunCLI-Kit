@@ -2,7 +2,7 @@ import { CommandPort } from '../../domain/ports/CommandPort';
 import * as fs from 'fs';
 import * as path from 'path';
 import { z } from 'zod';
-import { PackageJsonSchema } from '../../domain/schemas/FileSchemas';
+import { PackageJsonSchema, CommandRegistryServiceSchema } from '../../domain/schemas/FileSchemas';
 import { LoggerService } from '../../application/services/LoggerService';
 
 export class CommandRemoveCommand implements CommandPort {
@@ -42,7 +42,7 @@ export class CommandRemoveCommand implements CommandPort {
       fs.unlinkSync(filePath);
       this.logger.success(`File ${filePath} successfully deleted`);
 
-      this.removeFromIndexFile(className);
+      this.removeFromCommandRegistryService(className);
       this.removeFromPackageJson(commandName);
     } catch (error) {
       this.logger.error('Error while removing command:', error);
@@ -56,17 +56,18 @@ export class CommandRemoveCommand implements CommandPort {
       .join('');
   }
 
-  private removeFromIndexFile(className: string): void {
-    const indexPath = path.join('src', 'index.ts');
+  private removeFromCommandRegistryService(className: string): void {
+    const registryPath = path.join('src', 'application', 'services', 'CommandRegistryService.ts');
     try {
-      let content = fs.readFileSync(indexPath, 'utf-8');
-      const lines = content.split('\n');
+      let content = fs.readFileSync(registryPath, 'utf-8');
+      const validContent = CommandRegistryServiceSchema.parse(content);
+      const lines = validContent.split('\n');
 
       const importIndex = lines.findIndex(
         line =>
-          line.includes(`import`) &&
+          line.includes('import') &&
           line.includes(`{ ${className} }`) &&
-          line.includes(`./infrastructure/commands/${className}`)
+          line.includes(`../../infrastructure/commands/${className}`)
       );
 
       if (importIndex !== -1) {
@@ -78,19 +79,22 @@ export class CommandRemoveCommand implements CommandPort {
       if (instanceIndex !== -1) {
         lines.splice(instanceIndex, 1);
 
-        if (
-          lines[instanceIndex - 1]?.trim().endsWith(',') &&
-          lines[instanceIndex]?.trim().startsWith(']')
-        ) {
-          lines[instanceIndex - 1] = lines[instanceIndex - 1].replace(/,\s*$/, '');
+        const previousLine = lines[instanceIndex - 1];
+        const nextLine = lines[instanceIndex];
+        if (previousLine.trim().endsWith(',') && nextLine.trim().startsWith(']')) {
+          lines[instanceIndex - 1] = previousLine.replace(/,\s*$/, ',');
         }
       }
 
       content = lines.join('\n');
-      fs.writeFileSync(indexPath, content);
-      this.logger.success(`Command removed from index.ts`);
+      fs.writeFileSync(registryPath, content);
+      this.logger.success(`Command removed from CommandRegistryService.ts`);
     } catch (error) {
-      this.logger.error('Error while updating index.ts:', error);
+      if (error instanceof z.ZodError) {
+        this.logger.error('Invalid CommandRegistryService.ts file format:', error.errors);
+      } else {
+        this.logger.error('Error while updating CommandRegistryService.ts:', error);
+      }
     }
   }
 

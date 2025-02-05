@@ -1,20 +1,13 @@
-import { CommandService } from './application/services/CommandService';
-import { HelpCommand } from './infrastructure/commands/HelpCommand';
-import { CommandCreateCommand } from './infrastructure/commands/CommandCreateCommand';
-import { CommandRemoveCommand } from './infrastructure/commands/CommandRemoveCommand';
 import { LoggerService } from './application/services/LoggerService';
+import { CommandRegistryService } from './application/services/CommandRegistryService';
+import { handleAutocomplete } from './cliCompleter';
+
+// Check for autocompletion mode before proceeding.
+handleAutocomplete();
 
 async function main(): Promise<number> {
-  const commandService = new CommandService([
-    new CommandCreateCommand(),
-    new CommandRemoveCommand(),
-  ]);
-
-  const helpCommand = new HelpCommand(commandService.getCommands());
-  commandService.addCommand(helpCommand);
-
+  const commandService = CommandRegistryService.getInstance().getCommandService();
   await commandService.execute(process.argv.slice(2));
-
   return 0;
 }
 
@@ -24,6 +17,6 @@ const logger = LoggerService.getInstance().getLogger({
 });
 
 main().catch(error => {
-  logger.error('Fatal error:', error);
+  logger.error('An error occurred:', error);
   process.exit(1);
 });
