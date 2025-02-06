@@ -175,25 +175,32 @@ BunCLI-Kit integrates a flexible system to interact with different AI models thr
 - **Factory Pattern**: AI model creation via `AiModelFactory` singleton
 - **Streaming Support**: Built-in streaming capabilities for AI responses
 
-### Using the JSON Formatter
+### Using Zod Schema
 
-The `JsonFormatter` allows parsing and validating JSON responses from AI models. Here's a complete example:
+The AI system allows easy typing of responses using Zod schemas. Here's a complete example:
 
 ```typescript
 import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
 import { AiModelFactory } from '../ai/AiModelFactory';
 import { z } from 'zod';
-import { JsonFormatter } from '@/domain/ai/formatters/JsonFormatter';
 
-// Define your schema
+// Define your schemas
 const WeatherDataSchema = z.object({
   temperature: z.number(),
   conditions: z.string(),
   location: z.string(),
 });
 
-type WeatherData = z.infer<typeof WeatherDataSchema>;
+const MultipleCitiesWeatherSchema = z.object({
+  cities: z.array(
+    z.object({
+      city: z.string(),
+      temperature: z.number(),
+      conditions: z.string(),
+    })
+  ),
+});
 
 export class MyAiCommand implements CommandPort {
   private readonly logger;
@@ -208,16 +215,15 @@ export class MyAiCommand implements CommandPort {
   async execute(): Promise<void> {
     const factory = AiModelFactory.getInstance();
     const model = factory.createOllamaModel('mistral');
-    const jsonFormatter = new JsonFormatter();
 
     try {
-      // Example with JSON formatting
-      const response = await model.generate<WeatherData>(
-        'Give me the weather in Paris in JSON format with the fields temperature (number), conditions (string) and location (string)',
+      // Example with simple schema
+      const response = await model.generate(
+        'Give me the weather in Paris. For temperature, write 9 for 9°C, 10 for 10°C, etc.',
         {
           temperature: 0.7,
-          systemPrompt: 'You are an assistant that only responds in valid JSON.',
-          formatter: jsonFormatter.create(WeatherDataSchema),
+          systemPrompt: 'You are a weather reporter. Write in Spanish.',
+          schema: WeatherDataSchema,
         }
       );
 
@@ -225,6 +231,22 @@ export class MyAiCommand implements CommandPort {
       this.logger.info('- Temperature:', response.content?.temperature ?? 'N/A');
       this.logger.info('- Conditions:', response.content?.conditions ?? 'N/A');
       this.logger.info('- Location:', response.content?.location ?? 'N/A');
+
+      // Example with complex schema
+      const multiCityResponse = await model.generate(
+        'Give me the current weather for Paris, Lyon, and Marseille.',
+        {
+          temperature: 0.7,
+          schema: MultipleCitiesWeatherSchema,
+        }
+      );
+
+      this.logger.info('Multiple cities weather:');
+      multiCityResponse.content?.cities.forEach(city => {
+        this.logger.info(`${city.city}:`);
+        this.logger.info('- Temperature:', city.temperature);
+        this.logger.info('- Conditions:', city.conditions);
+      });
 
       // Example with streaming and simple transformation
       this.logger.info('\nStreaming response with transformation:');
@@ -246,14 +268,95 @@ export class MyAiCommand implements CommandPort {
 }
 ```
 
+### Using Custom Formatters
+
+In addition to Zod schemas, you can use custom formatters to transform responses. Here are some examples:
+
+```typescript
+import { CommandPort } from '@/domain/ports/CommandPort';
+import { LoggerService } from '@/application/services/LoggerService';
+import { AiModelFactory } from '../ai/AiModelFactory';
+
+export class MyFormatterCommand implements CommandPort {
+  private readonly logger;
+
+  constructor() {
+    this.logger = LoggerService.getInstance().getLogger({
+      prefix: 'my-formatter-command',
+      timestamp: false,
+    });
+  }
+
+  async execute(): Promise<void> {
+    const factory = AiModelFactory.getInstance();
+    const model = factory.createOllamaModel('mistral');
+
+    try {
+      // Example with a simple formatter that converts text to uppercase
+      const upperCaseFormatter = (content: string): string => content.toUpperCase();
+      
+      const response = await model.generate(
+        'Tell me a short story.',
+        {
+          temperature: 0.7,
+          formatter: upperCaseFormatter,
+          systemPrompt: 'You are a storyteller.',
+        }
+      );
+
+      this.logger.info('Uppercase story:', response.content);
+
+      // Example with a formatter that adds prefix and suffix
+      const wrapFormatter = (content: string): string => {
+        return `🌟 ${content} 🌟`;
+      };
+
+      const wrappedResponse = await model.generate(
+        'Give me an inspiring quote.',
+        {
+          temperature: 0.7,
+          formatter: wrapFormatter,
+          systemPrompt: 'You are a motivational coach.',
+        }
+      );
+
+      this.logger.info('Decorated quote:', wrappedResponse.content);
+
+      // Example with streaming and transformation
+      this.logger.info('\nStreaming response with transformation:');
+      
+      if (model.streamGenerate) {
+        for await (const chunk of model.streamGenerate<string>(
+          'Tell me a joke.',
+          {
+            temperature: 0.7,
+            formatter: upperCaseFormatter,
+            systemPrompt: 'You are a comedian.',
+          }
+        )) {
+          process.stdout.write(chunk.content ?? 'N/A');
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error:', error);
+    }
+  }
+}
+```
+
+Formatters can be used to:
+- Transform text (uppercase, lowercase, etc.)
+- Add decorations or formatting
+- Clean or normalize responses
+- Apply custom transformations
+
 ### Key Features
 
-- Factory singleton pattern for AI model instantiation
-- Type-safe responses with Zod schema validation
-- Support for streaming responses with transformation
-- Built-in error handling and logging
-- Flexible formatting system for different output types
-- Temperature and system prompt configuration
+- Strong typing with Zod schemas for AI responses
+- Support for simple and complex schemas
+- Automatic response validation
+- Streaming support with transformation
+- Flexible configuration (temperature, system prompt)
 - Support for multiple AI models (Ollama, etc.)
 
 ## 🔧 Professional Services

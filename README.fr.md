@@ -174,25 +174,32 @@ BunCLI-Kit intègre un système flexible pour interagir avec différents modèle
 - **Factory Pattern**: Création de modèles d'IA via le singleton `AiModelFactory`
 - **Support Streaming**: Capacités de streaming intégrées pour les réponses d'IA
 
-### Utilisation du Formatteur JSON
+### Utilisation avec Schéma Zod
 
-Le `JsonFormatter` permet de parser et valider les réponses JSON des modèles d'IA. Voici un exemple complet :
+Le système d'IA permet de typer facilement les réponses en utilisant des schémas Zod. Voici un exemple complet :
 
 ```typescript
 import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
 import { AiModelFactory } from '../ai/AiModelFactory';
 import { z } from 'zod';
-import { JsonFormatter } from '@/domain/ai/formatters/JsonFormatter';
 
-// Définir votre schéma
+// Définir vos schémas
 const WeatherDataSchema = z.object({
   temperature: z.number(),
   conditions: z.string(),
   location: z.string(),
 });
 
-type WeatherData = z.infer<typeof WeatherDataSchema>;
+const MultipleCitiesWeatherSchema = z.object({
+  cities: z.array(
+    z.object({
+      city: z.string(),
+      temperature: z.number(),
+      conditions: z.string(),
+    })
+  ),
+});
 
 export class MyAiCommand implements CommandPort {
   private readonly logger;
@@ -207,23 +214,38 @@ export class MyAiCommand implements CommandPort {
   async execute(): Promise<void> {
     const factory = AiModelFactory.getInstance();
     const model = factory.createOllamaModel('mistral');
-    const jsonFormatter = new JsonFormatter();
 
     try {
-      // Exemple avec formatage JSON
-      const response = await model.generate<WeatherData>(
-        'Give me the weather in Paris in JSON format with the fields temperature (number), conditions (string) and location (string)',
+      // Exemple avec un schéma simple
+      const response = await model.generate(
+        'Give me the weather in Paris. For temperature, write 9 for 9°C, 10 for 10°C, etc.',
         {
           temperature: 0.7,
-          systemPrompt: 'You are an assistant that only responds in valid JSON.',
-          formatter: jsonFormatter.create(WeatherDataSchema),
+          systemPrompt: 'You are a weather reporter. Write in Spanish.',
+          schema: WeatherDataSchema,
         }
       );
 
       this.logger.info('Données météo :');
       this.logger.info('- Température :', response.content?.temperature ?? 'N/A');
       this.logger.info('- Conditions :', response.content?.conditions ?? 'N/A');
-      this.logger.info('- Localisation :', response.content?.location ?? 'N/A');
+      this.logger.info('- Location :', response.content?.location ?? 'N/A');
+
+      // Exemple avec un schéma plus complexe
+      const multiCityResponse = await model.generate(
+        'Give me the current weather for Paris, Lyon, and Marseille.',
+        {
+          temperature: 0.7,
+          schema: MultipleCitiesWeatherSchema,
+        }
+      );
+
+      this.logger.info('Météo multi-villes :');
+      multiCityResponse.content?.cities.forEach(city => {
+        this.logger.info(`${city.city}:`);
+        this.logger.info('- Température:', city.temperature);
+        this.logger.info('- Conditions:', city.conditions);
+      });
 
       // Exemple avec streaming et transformation simple
       this.logger.info('\nRéponse en streaming avec transformation :');
@@ -245,14 +267,95 @@ export class MyAiCommand implements CommandPort {
 }
 ```
 
+### Utilisation des Formatters Personnalisés
+
+En plus des schémas Zod, vous pouvez utiliser des formatters personnalisés pour transformer les réponses. Voici quelques exemples :
+
+```typescript
+import { CommandPort } from '@/domain/ports/CommandPort';
+import { LoggerService } from '@/application/services/LoggerService';
+import { AiModelFactory } from '../ai/AiModelFactory';
+
+export class MyFormatterCommand implements CommandPort {
+  private readonly logger;
+
+  constructor() {
+    this.logger = LoggerService.getInstance().getLogger({
+      prefix: 'my-formatter-command',
+      timestamp: false,
+    });
+  }
+
+  async execute(): Promise<void> {
+    const factory = AiModelFactory.getInstance();
+    const model = factory.createOllamaModel('mistral');
+
+    try {
+      // Exemple avec un formatter simple qui met le texte en majuscules
+      const upperCaseFormatter = (content: string): string => content.toUpperCase();
+      
+      const response = await model.generate(
+        'Raconte-moi une courte histoire.',
+        {
+          temperature: 0.7,
+          formatter: upperCaseFormatter,
+          systemPrompt: 'Tu es un conteur d\'histoires.',
+        }
+      );
+
+      this.logger.info('Histoire en majuscules :', response.content);
+
+      // Exemple avec un formatter qui ajoute un préfixe et un suffixe
+      const wrapFormatter = (content: string): string => {
+        return `🌟 ${content} 🌟`;
+      };
+
+      const wrappedResponse = await model.generate(
+        'Donne-moi une citation inspirante.',
+        {
+          temperature: 0.7,
+          formatter: wrapFormatter,
+          systemPrompt: 'Tu es un coach motivant.',
+        }
+      );
+
+      this.logger.info('Citation décorée :', wrappedResponse.content);
+
+      // Exemple avec streaming et transformation
+      this.logger.info('\nRéponse en streaming avec transformation :');
+      
+      if (model.streamGenerate) {
+        for await (const chunk of model.streamGenerate<string>(
+          'Raconte-moi une blague.',
+          {
+            temperature: 0.7,
+            formatter: upperCaseFormatter,
+            systemPrompt: 'Tu es un comédien.',
+          }
+        )) {
+          process.stdout.write(chunk.content ?? 'N/A');
+        }
+      }
+    } catch (error) {
+      this.logger.error('Erreur :', error);
+    }
+  }
+}
+```
+
+Les formatters peuvent être utilisés pour :
+- Transformer le texte (majuscules, minuscules, etc.)
+- Ajouter des décorations ou du formatage
+- Nettoyer ou normaliser les réponses
+- Appliquer des transformations personnalisées
+
 ### Fonctionnalités Clés
 
-- Pattern singleton factory pour l'instanciation des modèles d'IA
-- Réponses type-safe avec validation par schéma Zod
-- Support des réponses en streaming avec transformation
-- Gestion des erreurs et logging intégrés
-- Système de formatage flexible pour différents types de sortie
-- Configuration de la température et du prompt système
+- Typage fort avec schémas Zod pour les réponses de l'IA
+- Support des schémas simples et complexes
+- Validation automatique des réponses
+- Support du streaming avec transformation
+- Configuration flexible (température, prompt système)
 - Support de multiples modèles d'IA (Ollama, etc.)
 
 ## 🔧 Services Professionnels
