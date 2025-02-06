@@ -2,7 +2,7 @@
 
 [![fr](https://img.shields.io/badge/lang-fr-blue.svg)](README.fr.md)
 
-A powerful and modern TypeScript CLI development kit powered by Bun, designed to help you create robust command-line applications with ease. This toolkit provides a clean and structured way to create CLI commands using TypeScript, Zod for validation, and Bun for fast execution.
+A powerful and modern TypeScript CLI development kit powered by Bun, designed to help you create robust command-line applications with ease. This toolkit provides a clean and structured way to create CLI commands using TypeScript, Zod for validation, and Bun for fast execution. It also includes a comprehensive system for interacting with AI models locally through Ollama, allowing you to enhance your CLI commands with artificial intelligence capabilities in a simple and efficient way.
 
 ## 🌟 Features
 
@@ -163,6 +163,98 @@ bun run lint
 # Fix auto-fixable issues
 bun run lint --fix
 ```
+
+## 🤖 Artificial Intelligence
+
+BunCLI-Kit integrates a flexible system to interact with different AI models through a clean and extensible architecture.
+
+### AI Architecture
+
+- **IAiModel Interface**: Base interface for all AI models
+- **Formatters**: Formatting system to parse AI responses
+- **Factory Pattern**: AI model creation via `AiModelFactory` singleton
+- **Streaming Support**: Built-in streaming capabilities for AI responses
+
+### Using the JSON Formatter
+
+The `JsonFormatter` allows parsing and validating JSON responses from AI models. Here's a complete example:
+
+```typescript
+import { CommandPort } from '@/domain/ports/CommandPort';
+import { LoggerService } from '@/application/services/LoggerService';
+import { AiModelFactory } from '../ai/AiModelFactory';
+import { z } from 'zod';
+import { JsonFormatter } from '@/domain/ai/formatters/JsonFormatter';
+
+// Define your schema
+const WeatherDataSchema = z.object({
+  temperature: z.number(),
+  conditions: z.string(),
+  location: z.string(),
+});
+
+type WeatherData = z.infer<typeof WeatherDataSchema>;
+
+export class MyAiCommand implements CommandPort {
+  private readonly logger;
+
+  constructor() {
+    this.logger = LoggerService.getInstance().getLogger({
+      prefix: 'my-ai-command',
+      timestamp: false,
+    });
+  }
+
+  async execute(): Promise<void> {
+    const factory = AiModelFactory.getInstance();
+    const model = factory.createOllamaModel('mistral');
+    const jsonFormatter = new JsonFormatter();
+
+    try {
+      // Example with JSON formatting
+      const response = await model.generate<WeatherData>(
+        'Give me the weather in Paris in JSON format with the fields temperature (number), conditions (string) and location (string)',
+        {
+          temperature: 0.7,
+          systemPrompt: 'You are an assistant that only responds in valid JSON.',
+          formatter: jsonFormatter.create(WeatherDataSchema),
+        }
+      );
+
+      this.logger.info('Weather data:');
+      this.logger.info('- Temperature:', response.content?.temperature ?? 'N/A');
+      this.logger.info('- Conditions:', response.content?.conditions ?? 'N/A');
+      this.logger.info('- Location:', response.content?.location ?? 'N/A');
+
+      // Example with streaming and simple transformation
+      this.logger.info('\nStreaming response with transformation:');
+      const upperCaseFormatter = (content: string): string => content.toUpperCase();
+
+      if (model.streamGenerate) {
+        for await (const chunk of model.streamGenerate<string>('Tell me a short story.', {
+          temperature: 0.7,
+          formatter: upperCaseFormatter,
+          systemPrompt: 'in french.',
+        })) {
+          process.stdout.write(chunk.content ?? 'N/A');
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error:', error);
+    }
+  }
+}
+```
+
+### Key Features
+
+- Factory singleton pattern for AI model instantiation
+- Type-safe responses with Zod schema validation
+- Support for streaming responses with transformation
+- Built-in error handling and logging
+- Flexible formatting system for different output types
+- Temperature and system prompt configuration
+- Support for multiple AI models (Ollama, etc.)
 
 ## 🔧 Professional Services
 

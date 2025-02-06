@@ -2,35 +2,35 @@
 
 [![en](https://img.shields.io/badge/lang-en-red.svg)](README.md)
 
-Un kit de développement CLI TypeScript moderne et puissant propulsé par Bun, conçu pour vous aider à créer des applications en ligne de commande robustes facilement. Cette boîte à outils fournit une façon propre et structurée de créer des commandes CLI en utilisant TypeScript, Zod pour la validation, et Bun pour une exécution rapide.
+Un kit de développement CLI TypeScript puissant et moderne propulsé par Bun, conçu pour vous aider à créer des applications en ligne de commande robustes avec facilité. Cette boîte à outils fournit une manière propre et structurée de créer des commandes CLI en utilisant TypeScript, Zod pour la validation, et Bun pour une exécution rapide. Elle intègre également un système complet pour interagir avec des modèles d'IA en local via Ollama, permettant d'enrichir vos commandes CLI avec des capacités d'intelligence artificielle de manière simple et efficace.
 
 ## 🌟 Fonctionnalités
 
-- **TypeScript First**: Construit avec TypeScript pour une sécurité de type et une expérience développeur maximale
+- **TypeScript First**: Construit avec TypeScript pour une sécurité de type maximale et une expérience développeur optimale
 - **Propulsé par Bun**: Exploite la vitesse et les fonctionnalités modernes de Bun
-- **Architecture Propre**: Implémente une architecture hexagonale avec des principes de conception dirigée par le domaine
+- **Architecture Propre**: Implémente l'architecture hexagonale avec les principes du domain-driven design
 - **Validation des Données**: Validation des schémas Zod intégrée pour une gestion robuste des commandes
 - **Expérience Développeur**: Inclut la configuration ESLint et Prettier prête à l'emploi
 - **Sécurité des Types**: Configuration TypeScript stricte pour un code fiable
 - **Patterns Modernes**: Implémente les principes SOLID et les pratiques de code propre
-- **Journalisation Avancée**: Système de logging flexible avec plusieurs options de sortie
+- **Logging Avancé**: Système de logging flexible avec plusieurs options de sortie
 
-## 📝 Système de Journalisation
+## 📝 Système de Logging
 
-BunCLI-Kit inclut un système de journalisation puissant via le `LoggerService` qui vous aide à suivre et déboguer votre application :
+Le BunCLI-Kit inclut un puissant système de logging via le `LoggerService` qui vous aide à suivre et déboguer votre application :
 
-- **Sortie Flexible**: Support pour la journalisation console et fichier
+- **Sortie Flexible**: Support pour la console et le logging dans des fichiers
 - **Niveaux de Log**: Différents niveaux de log (INFO, ERROR, DEBUG, etc.)
 - **Interface Propre**: Implémentation de l'interface `LoggerPort` pour une extension facile
-- **Injection de Dépendances**: Suit les principes d'architecture propre
+- **Injection de Dépendances**: Suit les principes de l'architecture propre
 
 Exemple d'utilisation :
 
 ```typescript
-// Injection du service de journalisation
+// Injecter le service de logging
 constructor(private readonly logger: LoggerPort) {}
 
-// Utilisation dans votre code
+// Utiliser dans votre code
 this.logger.info('Commande exécutée avec succès');
 this.logger.error('Une erreur est survenue', error);
 this.logger.debug('Information de débogage');
@@ -109,7 +109,7 @@ Cela va :
 - Suivez le modèle d'architecture hexagonale :
   - `domain/`: Logique métier et interfaces
   - `infrastructure/`: Implémentations des commandes
-  - `application/`: Services applicatifs
+  - `application/`: Services d'application
 - Écrivez du code propre et maintenable suivant les principes SOLID
 - Utilisez la configuration ESLint et Prettier fournie
 - Ajoutez des tests pour vos commandes en utilisant le runner de test de Bun
@@ -163,6 +163,98 @@ bun run lint
 bun run lint --fix
 ```
 
+## 🤖 Intelligence Artificielle
+
+BunCLI-Kit intègre un système flexible pour interagir avec différents modèles d'IA via une architecture propre et extensible.
+
+### Architecture IA
+
+- **Interface IAiModel**: Interface de base pour tous les modèles d'IA
+- **Formatters**: Système de formatage pour parser les réponses de l'IA
+- **Factory Pattern**: Création de modèles d'IA via le singleton `AiModelFactory`
+- **Support Streaming**: Capacités de streaming intégrées pour les réponses d'IA
+
+### Utilisation du Formatteur JSON
+
+Le `JsonFormatter` permet de parser et valider les réponses JSON des modèles d'IA. Voici un exemple complet :
+
+```typescript
+import { CommandPort } from '@/domain/ports/CommandPort';
+import { LoggerService } from '@/application/services/LoggerService';
+import { AiModelFactory } from '../ai/AiModelFactory';
+import { z } from 'zod';
+import { JsonFormatter } from '@/domain/ai/formatters/JsonFormatter';
+
+// Définir votre schéma
+const WeatherDataSchema = z.object({
+  temperature: z.number(),
+  conditions: z.string(),
+  location: z.string(),
+});
+
+type WeatherData = z.infer<typeof WeatherDataSchema>;
+
+export class MyAiCommand implements CommandPort {
+  private readonly logger;
+
+  constructor() {
+    this.logger = LoggerService.getInstance().getLogger({
+      prefix: 'my-ai-command',
+      timestamp: false,
+    });
+  }
+
+  async execute(): Promise<void> {
+    const factory = AiModelFactory.getInstance();
+    const model = factory.createOllamaModel('mistral');
+    const jsonFormatter = new JsonFormatter();
+
+    try {
+      // Exemple avec formatage JSON
+      const response = await model.generate<WeatherData>(
+        'Give me the weather in Paris in JSON format with the fields temperature (number), conditions (string) and location (string)',
+        {
+          temperature: 0.7,
+          systemPrompt: 'You are an assistant that only responds in valid JSON.',
+          formatter: jsonFormatter.create(WeatherDataSchema),
+        }
+      );
+
+      this.logger.info('Données météo :');
+      this.logger.info('- Température :', response.content?.temperature ?? 'N/A');
+      this.logger.info('- Conditions :', response.content?.conditions ?? 'N/A');
+      this.logger.info('- Localisation :', response.content?.location ?? 'N/A');
+
+      // Exemple avec streaming et transformation simple
+      this.logger.info('\nRéponse en streaming avec transformation :');
+      const upperCaseFormatter = (content: string): string => content.toUpperCase();
+
+      if (model.streamGenerate) {
+        for await (const chunk of model.streamGenerate<string>('Tell me a short story.', {
+          temperature: 0.7,
+          formatter: upperCaseFormatter,
+          systemPrompt: 'in french.',
+        })) {
+          process.stdout.write(chunk.content ?? 'N/A');
+        }
+      }
+    } catch (error) {
+      this.logger.error('Erreur :', error);
+    }
+  }
+}
+```
+
+### Fonctionnalités Clés
+
+- Pattern singleton factory pour l'instanciation des modèles d'IA
+- Réponses type-safe avec validation par schéma Zod
+- Support des réponses en streaming avec transformation
+- Gestion des erreurs et logging intégrés
+- Système de formatage flexible pour différents types de sortie
+- Configuration de la température et du prompt système
+- Support de multiples modèles d'IA (Ollama, etc.)
+
 ## 🔧 Services Professionnels
 
 ### Expertise Technique
@@ -203,7 +295,7 @@ Pour toute demande de collaboration ou de développement sur mesure :
 
 Ce projet est sous licence MIT - voir le fichier [LICENSE.md](LICENSE.md) pour plus de détails.
 
-## ⭐ Contribution
+## ⭐ Contribuer
 
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou à soumettre une pull request.
 
