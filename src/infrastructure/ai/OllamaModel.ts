@@ -1,42 +1,129 @@
-import { AiModelOptions, AiResponse, IAiModel } from '../../domain/ai/ports/IAiModel';
+import { z } from 'zod';
+import { AiModelOptions, AiResponse, IAiModel } from '@/domain/ai/ports/IAiModel';
+import { JsonPromptGenerator } from '@/domain/ai/prompts/JsonPromptGenerator';
+import { JsonFormatter } from '@/domain/ai/formatters/JsonFormatter';
+
+interface RetryOptions {
+  maxAttempts: number;
+  delayMs: number;
+}
 
 export class OllamaModel implements IAiModel {
+  private readonly defaultRetryOptions: RetryOptions = {
+    maxAttempts: 3,
+    delayMs: 1000,
+  };
+
   constructor(
     public readonly name: string,
-    private readonly baseUrl: string = 'http://localhost:11434'
+    private readonly baseUrl: string = 'http://localhost:11434',
+    private readonly retryOptions: RetryOptions = { maxAttempts: 3, delayMs: 60000 }
   ) {}
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async retryOperation<T>(
+    operation: () => Promise<T>,
+    validator: (result: T) => boolean,
+    options: RetryOptions = this.defaultRetryOptions
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= options.maxAttempts; attempt++) {
+      try {
+        const result = await operation();
+        if (validator(result)) {
+          return result;
+        }
+        lastError = new Error(`Invalid response format on attempt ${attempt}`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+
+      if (attempt < options.maxAttempts) {
+        await this.delay(options.delayMs);
+      }
+    }
+
+    throw new Error(
+      `Operation failed after ${options.maxAttempts} attempts. Last error: ${lastError?.message}`
+    );
+  }
 
   async generate<T = string>(
     prompt: string,
-    options?: AiModelOptions & { formatter?: (content: string) => T | null }
+    options?: AiModelOptions & {
+      formatter?: (content: string) => T | null;
+      schema?: z.ZodType<T>;
+      retry?: RetryOptions;
+    }
   ): Promise<AiResponse<T>> {
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.name,
-        prompt,
-        stream: false,
-        system: options?.systemPrompt,
-        temperature: options?.temperature,
-        top_p: options?.topP,
-        stop: options?.stop,
-        num_predict: options?.maxTokens,
-      }),
-    });
+    const finalOptions = options ? { ...options } : {};
+    if (finalOptions.schema && finalOptions.schema instanceof z.ZodObject) {
+      const jsonPromptGenerator = new JsonPromptGenerator();
+      const jsonFormatter = new JsonFormatter();
 
-    if (!response.ok) {
-      throw new Error(`Ollama request failed: ${response.statusText}`);
+      const generatedSystemPrompt = jsonPromptGenerator.generateSystemPrompt(finalOptions.schema);
+      if (
+        finalOptions?.systemPrompt !== null &&
+        finalOptions?.systemPrompt !== undefined &&
+        finalOptions.systemPrompt.trim() !== ''
+      ) {
+        finalOptions.systemPrompt = `${generatedSystemPrompt}\n${finalOptions.systemPrompt}`;
+      } else {
+        finalOptions.systemPrompt = generatedSystemPrompt;
+      }
+      finalOptions.formatter = jsonFormatter.create(finalOptions.schema);
     }
 
-    const data = await response.json();
+    return this.retryOperation(
+      async () => {
+        const response = await fetch(`${this.baseUrl}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: this.name,
+            prompt,
+            stream: false,
+            system: finalOptions.systemPrompt,
+            temperature: finalOptions.temperature,
+            top_p: finalOptions.topP,
+            stop: finalOptions.stop,
+            num_predict: finalOptions.maxTokens,
+          }),
+        });
 
-    return {
-      content: options?.formatter ? options.formatter(data.response) : (data.response as T),
-      model: this.name,
-    };
+        if (!response.ok) {
+          throw new Error(`Ollama request failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const content = finalOptions.formatter
+          ? finalOptions.formatter(data.response)
+          : data.response;
+
+        return {
+          content,
+          model: this.name,
+        };
+      },
+      result => {
+        if (finalOptions.schema) {
+          try {
+            finalOptions.schema.parse(result.content);
+            return true;
+          } catch {
+            return false;
+          }
+        }
+        return result.content !== null;
+      },
+      options?.retry || this.retryOptions
+    );
   }
 
   async *streamGenerate<T = string>(

@@ -2,7 +2,6 @@ import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
 import { AiModelFactory } from '../ai/AiModelFactory';
 import { z } from 'zod';
-import { JsonFormatter } from '@/domain/ai/formatters/JsonFormatter';
 
 const WeatherDataSchema = z.object({
   temperature: z.number(),
@@ -10,7 +9,15 @@ const WeatherDataSchema = z.object({
   location: z.string(),
 });
 
-type WeatherData = z.infer<typeof WeatherDataSchema>;
+const MultipleCitiesWeatherSchema = z.object({
+  cities: z.array(
+    z.object({
+      city: z.string(),
+      temperature: z.number(),
+      conditions: z.string(),
+    })
+  ),
+});
 
 export class TestAiFormatterCommand implements CommandPort {
   private readonly logger;
@@ -33,24 +40,53 @@ export class TestAiFormatterCommand implements CommandPort {
   async execute(): Promise<void> {
     const factory = AiModelFactory.getInstance();
     const model = factory.createOllamaModel('mistral');
-    const jsonFormatter = new JsonFormatter();
 
     try {
-      const response = await model.generate<WeatherData>(
-        'Give me the weather in Paris in JSON format with the fields temperature (number), conditions (string) and location (string) in this form: {"temperature": 20, "conditions": "sunny", "location": "Paris"}',
+      // Test simple weather data
+      const response = await model.generate(
+        `Give me the weather in Paris. For temperature, write 9 for 9°C, 10 for 10°C, etc.`,
         {
           temperature: 0.7,
-          systemPrompt: 'You are an assistant that only responds in valid JSON.',
-          formatter: jsonFormatter.create(WeatherDataSchema),
+          systemPrompt: `You are a weather reporter. Write in Spanish.`,
+          schema: WeatherDataSchema,
         }
       );
 
-      this.logger.info('Complete response:', response);
+      this.logger.info('Single city response:', response);
       this.logger.info('Model used:', response.model);
       this.logger.info('Weather data:');
       this.logger.info('- Temperature:', response.content?.temperature ?? 'N/A');
       this.logger.info('- Conditions:', response.content?.conditions ?? 'N/A');
       this.logger.info('- Location:', response.content?.location ?? 'N/A');
+
+      // Test multiple cities weather data
+      this.logger.info('\nTesting multiple cities weather:');
+      const multiCityResponse = await model.generate(
+        `Give me the current weather for Paris, Lyon, and Marseille. For temperature, write 9 for 9°C, 10 for 10°C, etc.`,
+        {
+          temperature: 0.7,
+          schema: MultipleCitiesWeatherSchema,
+        }
+      );
+
+      this.logger.info('Multiple cities response:');
+      multiCityResponse.content?.cities.forEach(city => {
+        this.logger.info(`${city.city}:`);
+        this.logger.info('- Temperature:', city.temperature);
+        this.logger.info('- Conditions:', city.conditions);
+      });
+
+      this.logger.info('\nTesting simple text generation for weather:');
+      const textResponse = await model.generate(
+        'Describe the current weather in Nice, France in a poetic way.',
+        {
+          temperature: 0.7,
+          systemPrompt: 'You are a poetic weather reporter. Write in French.',
+        }
+      );
+
+      this.logger.info('Poetic weather description:');
+      this.logger.info(textResponse.content ?? 'N/A');
 
       // Example with streaming and simple transformation
       this.logger.info('\nStreaming response with transformation:');

@@ -13,11 +13,16 @@ export const AiResponseSchema = <T>(
 
 export type AiResponse<T = string> = z.infer<ReturnType<typeof AiResponseSchema<T>>>;
 
+export type FormatterOrSchema<T> =
+  | { formatter: (content: string) => T | null; schema?: never }
+  | { schema: z.ZodType<T>; formatter?: never }
+  | { formatter?: never; schema?: never };
+
 export interface IAiModel {
   name: string;
   generate<T = string>(
     prompt: string,
-    options?: AiModelOptions & { formatter?: (content: string) => T | null }
+    options?: AiModelOptions & FormatterOrSchema<T>
   ): Promise<AiResponse<T>>;
   streamGenerate?<T = string>(
     prompt: string,
