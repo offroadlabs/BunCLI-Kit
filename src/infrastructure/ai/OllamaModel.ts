@@ -157,21 +157,55 @@ export class OllamaModel implements IAiModel {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(Boolean);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last potentially incomplete line in the buffer
+        const lastLine = lines.pop();
+        buffer = lastLine === undefined ? '' : lastLine;
 
         for (const line of lines) {
-          const data = JSON.parse(line);
-          yield {
-            content: options?.formatter ? options.formatter(data.response) : (data.response as T),
-            model: this.name,
-          };
+          if (line.trim() === '') continue;
+
+          try {
+            const data = JSON.parse(line);
+            const content = options?.formatter ? options.formatter(data.response) : data.response;
+
+            if (content !== null && content !== undefined) {
+              yield {
+                content,
+                model: this.name,
+              };
+            }
+          } catch (error) {
+            console.error('Error parsing JSON line:', error, 'Line:', line);
+            // Continue to next line instead of breaking the stream
+            continue;
+          }
+        }
+      }
+
+      // Process any remaining data in the buffer
+      if (buffer.trim()) {
+        try {
+          const data = JSON.parse(buffer);
+          const content = options?.formatter ? options.formatter(data.response) : data.response;
+
+          if (content !== null && content !== undefined) {
+            yield {
+              content,
+              model: this.name,
+            };
+          }
+        } catch (error) {
+          console.error('Error parsing final JSON buffer:', error);
         }
       }
     } finally {
