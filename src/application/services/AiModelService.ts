@@ -17,7 +17,7 @@ export class AiModelService {
   }
 
   public static getInstance(): AiModelService {
-    if (AiModelService.instance === null) {
+    if (AiModelService.instance === null || AiModelService.instance === undefined) {
       AiModelService.instance = new AiModelService();
     }
     return AiModelService.instance;
