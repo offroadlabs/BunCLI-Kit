@@ -170,19 +170,20 @@ BunCLI-Kit integrates a flexible system to interact with different AI models thr
 
 ### AI Architecture
 
+- **AiModelService**: Core service managing AI model interactions and validation
 - **IAiModel Interface**: Base interface for all AI models
 - **Formatters**: Formatting system to parse AI responses
 - **Factory Pattern**: AI model creation via `AiModelFactory` singleton
 - **Streaming Support**: Built-in streaming capabilities for AI responses
 
-### Using Zod Schema
+### Using AiModelService
 
-The AI system allows easy typing of responses using Zod schemas. Here's a complete example:
+The AI system provides a centralized service for managing AI models. Here's a complete example:
 
 ```typescript
 import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
-import { AiModelFactory } from '../ai/AiModelFactory';
+import { AiModelService } from '@/application/services/AiModelService';
 import { z } from 'zod';
 
 // Define your schemas
@@ -192,32 +193,23 @@ const WeatherDataSchema = z.object({
   location: z.string(),
 });
 
-const MultipleCitiesWeatherSchema = z.object({
-  cities: z.array(
-    z.object({
-      city: z.string(),
-      temperature: z.number(),
-      conditions: z.string(),
-    })
-  ),
-});
-
 export class MyAiCommand implements CommandPort {
   private readonly logger;
+  private readonly aiModelService;
 
   constructor() {
     this.logger = LoggerService.getInstance().getLogger({
       prefix: 'my-ai-command',
       timestamp: false,
     });
+    this.aiModelService = AiModelService.getInstance();
   }
 
   async execute(): Promise<void> {
-    const factory = AiModelFactory.getInstance();
-    const model = factory.createOllamaModel('mistral');
+    const model = this.aiModelService.createModel('ollama', 'mistral');
 
     try {
-      // Example with simple schema
+      // Example with schema validation
       const response = await model.generate(
         'Give me the weather in Paris. For temperature, write 9 for 9°C, 10 for 10°C, etc.',
         {
@@ -227,28 +219,22 @@ export class MyAiCommand implements CommandPort {
         }
       );
 
-      this.logger.info('Weather data:');
-      this.logger.info('- Temperature:', response.content?.temperature ?? 'N/A');
-      this.logger.info('- Conditions:', response.content?.conditions ?? 'N/A');
-      this.logger.info('- Location:', response.content?.location ?? 'N/A');
-
-      // Example with complex schema
-      const multiCityResponse = await model.generate(
-        'Give me the current weather for Paris, Lyon, and Marseille.',
-        {
-          temperature: 0.7,
-          schema: MultipleCitiesWeatherSchema,
-        }
+      // Validate response using AiModelService
+      const isValid = await this.aiModelService.validateModelResponse(
+        response.content,
+        WeatherDataSchema
       );
 
-      this.logger.info('Multiple cities weather:');
-      multiCityResponse.content?.cities.forEach(city => {
-        this.logger.info(`${city.city}:`);
-        this.logger.info('- Temperature:', city.temperature);
-        this.logger.info('- Conditions:', city.conditions);
-      });
+      if (isValid) {
+        this.logger.info('Weather data:');
+        this.logger.info('- Temperature:', response.content?.temperature ?? 'N/A');
+        this.logger.info('- Conditions:', response.content?.conditions ?? 'N/A');
+        this.logger.info('- Location:', response.content?.location ?? 'N/A');
+      } else {
+        this.logger.error('Invalid response format');
+      }
 
-      // Example with streaming and simple transformation
+      // Example with streaming and transformation
       this.logger.info('\nStreaming response with transformation:');
       const upperCaseFormatter = (content: string): string => content.toUpperCase();
 
@@ -268,28 +254,39 @@ export class MyAiCommand implements CommandPort {
 }
 ```
 
+### Key Features
+
+- Centralized AI model management through AiModelService
+- Strong typing with Zod schemas for AI responses
+- Built-in response validation
+- Support for multiple AI model types
+- Streaming support with transformation
+- Flexible configuration (temperature, system prompt)
+- Comprehensive logging and error handling
+
 ### Using Custom Formatters
 
-In addition to Zod schemas, you can use custom formatters to transform responses. Here are some examples:
+In addition to schema validation, you can use custom formatters to transform responses. Here's how to use them with AiModelService:
 
 ```typescript
 import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
-import { AiModelFactory } from '../ai/AiModelFactory';
+import { AiModelService } from '@/application/services/AiModelService';
 
 export class MyFormatterCommand implements CommandPort {
   private readonly logger;
+  private readonly aiModelService;
 
   constructor() {
     this.logger = LoggerService.getInstance().getLogger({
       prefix: 'my-formatter-command',
       timestamp: false,
     });
+    this.aiModelService = AiModelService.getInstance();
   }
 
   async execute(): Promise<void> {
-    const factory = AiModelFactory.getInstance();
-    const model = factory.createOllamaModel('mistral');
+    const model = this.aiModelService.createModel('ollama', 'mistral');
 
     try {
       // Example with a simple formatter that converts text to uppercase
@@ -349,15 +346,7 @@ Formatters can be used to:
 - Add decorations or formatting
 - Clean or normalize responses
 - Apply custom transformations
-
-### Key Features
-
-- Strong typing with Zod schemas for AI responses
-- Support for simple and complex schemas
-- Automatic response validation
-- Streaming support with transformation
-- Flexible configuration (temperature, system prompt)
-- Support for multiple AI models (Ollama, etc.)
+- Process responses before validation
 
 ## 🔧 Professional Services
 
@@ -397,7 +386,7 @@ For any collaboration or custom development requests:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## ⭐ Contributing
 

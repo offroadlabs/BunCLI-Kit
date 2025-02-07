@@ -169,19 +169,20 @@ BunCLI-Kit intègre un système flexible pour interagir avec différents modèle
 
 ### Architecture IA
 
+- **AiModelService**: Service central gérant les interactions et la validation des modèles d'IA
 - **Interface IAiModel**: Interface de base pour tous les modèles d'IA
 - **Formatters**: Système de formatage pour parser les réponses de l'IA
 - **Factory Pattern**: Création de modèles d'IA via le singleton `AiModelFactory`
 - **Support Streaming**: Capacités de streaming intégrées pour les réponses d'IA
 
-### Utilisation avec Schéma Zod
+### Utilisation du AiModelService
 
-Le système d'IA permet de typer facilement les réponses en utilisant des schémas Zod. Voici un exemple complet :
+Le système d'IA fournit un service centralisé pour la gestion des modèles d'IA. Voici un exemple complet :
 
 ```typescript
 import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
-import { AiModelFactory } from '../ai/AiModelFactory';
+import { AiModelService } from '@/application/services/AiModelService';
 import { z } from 'zod';
 
 // Définir vos schémas
@@ -191,32 +192,23 @@ const WeatherDataSchema = z.object({
   location: z.string(),
 });
 
-const MultipleCitiesWeatherSchema = z.object({
-  cities: z.array(
-    z.object({
-      city: z.string(),
-      temperature: z.number(),
-      conditions: z.string(),
-    })
-  ),
-});
-
 export class MyAiCommand implements CommandPort {
   private readonly logger;
+  private readonly aiModelService;
 
   constructor() {
     this.logger = LoggerService.getInstance().getLogger({
       prefix: 'my-ai-command',
       timestamp: false,
     });
+    this.aiModelService = AiModelService.getInstance();
   }
 
   async execute(): Promise<void> {
-    const factory = AiModelFactory.getInstance();
-    const model = factory.createOllamaModel('mistral');
+    const model = this.aiModelService.createModel('ollama', 'mistral');
 
     try {
-      // Exemple avec un schéma simple
+      // Exemple avec validation de schéma
       const response = await model.generate(
         'Give me the weather in Paris. For temperature, write 9 for 9°C, 10 for 10°C, etc.',
         {
@@ -226,28 +218,22 @@ export class MyAiCommand implements CommandPort {
         }
       );
 
-      this.logger.info('Données météo :');
-      this.logger.info('- Température :', response.content?.temperature ?? 'N/A');
-      this.logger.info('- Conditions :', response.content?.conditions ?? 'N/A');
-      this.logger.info('- Location :', response.content?.location ?? 'N/A');
-
-      // Exemple avec un schéma plus complexe
-      const multiCityResponse = await model.generate(
-        'Give me the current weather for Paris, Lyon, and Marseille.',
-        {
-          temperature: 0.7,
-          schema: MultipleCitiesWeatherSchema,
-        }
+      // Valider la réponse avec AiModelService
+      const isValid = await this.aiModelService.validateModelResponse(
+        response.content,
+        WeatherDataSchema
       );
 
-      this.logger.info('Météo multi-villes :');
-      multiCityResponse.content?.cities.forEach(city => {
-        this.logger.info(`${city.city}:`);
-        this.logger.info('- Température:', city.temperature);
-        this.logger.info('- Conditions:', city.conditions);
-      });
+      if (isValid) {
+        this.logger.info('Données météo :');
+        this.logger.info('- Température :', response.content?.temperature ?? 'N/A');
+        this.logger.info('- Conditions :', response.content?.conditions ?? 'N/A');
+        this.logger.info('- Location :', response.content?.location ?? 'N/A');
+      } else {
+        this.logger.error('Format de réponse invalide');
+      }
 
-      // Exemple avec streaming et transformation simple
+      // Exemple avec streaming et transformation
       this.logger.info('\nRéponse en streaming avec transformation :');
       const upperCaseFormatter = (content: string): string => content.toUpperCase();
 
@@ -267,28 +253,39 @@ export class MyAiCommand implements CommandPort {
 }
 ```
 
+### Fonctionnalités Clés
+
+- Gestion centralisée des modèles d'IA via AiModelService
+- Typage fort avec schémas Zod pour les réponses de l'IA
+- Validation intégrée des réponses
+- Support de plusieurs types de modèles d'IA
+- Support du streaming avec transformation
+- Configuration flexible (température, prompt système)
+- Gestion complète des logs et des erreurs
+
 ### Utilisation des Formatters Personnalisés
 
-En plus des schémas Zod, vous pouvez utiliser des formatters personnalisés pour transformer les réponses. Voici quelques exemples :
+En plus de la validation des schémas, vous pouvez utiliser des formatters personnalisés pour transformer les réponses. Voici comment les utiliser avec AiModelService :
 
 ```typescript
 import { CommandPort } from '@/domain/ports/CommandPort';
 import { LoggerService } from '@/application/services/LoggerService';
-import { AiModelFactory } from '../ai/AiModelFactory';
+import { AiModelService } from '@/application/services/AiModelService';
 
 export class MyFormatterCommand implements CommandPort {
   private readonly logger;
+  private readonly aiModelService;
 
   constructor() {
     this.logger = LoggerService.getInstance().getLogger({
       prefix: 'my-formatter-command',
       timestamp: false,
     });
+    this.aiModelService = AiModelService.getInstance();
   }
 
   async execute(): Promise<void> {
-    const factory = AiModelFactory.getInstance();
-    const model = factory.createOllamaModel('mistral');
+    const model = this.aiModelService.createModel('ollama', 'mistral');
 
     try {
       // Exemple avec un formatter simple qui met le texte en majuscules
@@ -348,15 +345,7 @@ Les formatters peuvent être utilisés pour :
 - Ajouter des décorations ou du formatage
 - Nettoyer ou normaliser les réponses
 - Appliquer des transformations personnalisées
-
-### Fonctionnalités Clés
-
-- Typage fort avec schémas Zod pour les réponses de l'IA
-- Support des schémas simples et complexes
-- Validation automatique des réponses
-- Support du streaming avec transformation
-- Configuration flexible (température, prompt système)
-- Support de multiples modèles d'IA (Ollama, etc.)
+- Traiter les réponses avant la validation
 
 ## 🔧 Services Professionnels
 
@@ -396,7 +385,7 @@ Pour toute demande de collaboration ou de développement sur mesure :
 
 ## 📄 Licence
 
-Ce projet est sous licence MIT - voir le fichier [LICENSE.md](LICENSE.md) pour plus de détails.
+Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ## ⭐ Contribuer
 
