@@ -185,3 +185,25 @@ chroma_db/
 .cursor*
 .cursor/
 .cursor/*
+
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+.bun/
+
+# Build output
+dist/
+build/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating System
+.DS_Store
+Thumbs.db

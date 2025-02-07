@@ -395,3 +395,49 @@ Contributions are welcome! Feel free to open an issue or submit a pull request.
 ---
 
 Developed by [Sébastien TIMONER](https://github.com/offroadlabs)
+
+## 🔑 Environment Variables Configuration
+
+BunCLI-Kit uses environment variables to manage sensitive configurations like API keys. An `.env.dist` template file is provided. To configure your environment:
+
+1. Copy the template file:
+```bash
+cp .env.dist .env
+```
+
+2. Modify the `.env` file with your configurations:
+
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, can be modified to use other compatible services
+
+# Anthropic Configuration
+ANTHROPIC_API_KEY=your-anthropic-api-key
+
+# Ollama Configuration
+OLLAMA_BASE_URL=http://localhost:11434  # Optional, modify if Ollama is on a different host
+```
+
+### OpenAI-Compatible Services
+
+The system supports different services compatible with the OpenAI API. Here are some configuration examples:
+
+```env
+# Standard OpenAI
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Azure OpenAI
+OPENAI_BASE_URL=https://your-resource.openai.azure.com
+
+# LocalAI
+OPENAI_BASE_URL=http://localhost:8080/v1
+
+# Other compatible services
+OPENAI_BASE_URL=https://api.your-service.com/v1
+```
+
+⚠️ **Important**: 
+- The `.env` file is ignored by Git to protect your sensitive information
+- Never commit your real API keys to the repository
+- Keep a secure backup of your API keys

@@ -41,6 +41,8 @@ export class TestAiFormatterCommand implements CommandPort {
 
   async execute(): Promise<void> {
     const model = this.aiModelService.createModel('ollama', 'mistral');
+    //const model = this.aiModelService.createModel('anthropic', 'claude-3-5-sonnet-20241022');
+    //const model = this.aiModelService.createModel('openai', 'gpt-4o-mini');
 
     try {
       // Test simple weather data

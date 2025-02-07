@@ -23,12 +23,16 @@ export class AiModelService {
     return AiModelService.instance;
   }
 
-  public createModel(type: string, modelName: string, baseUrl?: string): IAiModel {
+  public createModel(type: 'ollama' | 'openai' | 'anthropic', modelName: string): IAiModel {
     this.logger.debug(`Creating AI model of type ${type} with name ${modelName}`);
 
     switch (type.toLowerCase()) {
       case 'ollama':
-        return this.factory.createOllamaModel(modelName, baseUrl);
+        return this.factory.createOllamaModel(modelName);
+      case 'openai':
+        return this.factory.createOpenAiModel(modelName);
+      case 'anthropic':
+        return this.factory.createAnthropicModel(modelName);
       default:
         throw new Error(`Unsupported AI model type: ${type}`);
     }

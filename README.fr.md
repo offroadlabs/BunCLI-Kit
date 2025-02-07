@@ -15,6 +15,52 @@ Un kit de développement CLI TypeScript puissant et moderne propulsé par Bun, c
 - **Patterns Modernes**: Implémente les principes SOLID et les pratiques de code propre
 - **Logging Avancé**: Système de logging flexible avec plusieurs options de sortie
 
+## 🔑 Configuration des Variables d'Environnement
+
+BunCLI-Kit utilise des variables d'environnement pour gérer les configurations sensibles comme les clés API. Un fichier `.env.dist` est fourni comme modèle. Pour configurer votre environnement :
+
+1. Copiez le fichier modèle :
+```bash
+cp .env.dist .env
+```
+
+2. Modifiez le fichier `.env` avec vos configurations :
+
+```env
+# Configuration OpenAI
+OPENAI_API_KEY=votre-clé-api-openai
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optionnel, peut être modifié pour utiliser d'autres services compatibles
+
+# Configuration Anthropic
+ANTHROPIC_API_KEY=votre-clé-api-anthropic
+
+# Configuration Ollama
+OLLAMA_BASE_URL=http://localhost:11434  # Optionnel, modifiez si Ollama est sur un autre hôte
+```
+
+### Services Compatibles OpenAI
+
+Le système supporte différents services compatibles avec l'API OpenAI. Voici quelques exemples de configuration :
+
+```env
+# OpenAI standard
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Azure OpenAI
+OPENAI_BASE_URL=https://votre-ressource.openai.azure.com
+
+# LocalAI
+OPENAI_BASE_URL=http://localhost:8080/v1
+
+# Autres services compatibles
+OPENAI_BASE_URL=https://api.votre-service.com/v1
+```
+
+⚠️ **Important** : 
+- Le fichier `.env` est ignoré par Git pour protéger vos informations sensibles
+- Ne committez jamais vos vraies clés API dans le dépôt
+- Gardez une copie sécurisée de vos clés API
+
 ## 📝 Système de Logging
 
 Le BunCLI-Kit inclut un puissant système de logging via le `LoggerService` qui vous aide à suivre et déboguer votre application :
