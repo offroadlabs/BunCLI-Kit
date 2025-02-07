@@ -2,7 +2,7 @@
 
 [![en](https://img.shields.io/badge/lang-en-red.svg)](README.md)
 
-Un kit de développement CLI TypeScript puissant et moderne propulsé par Bun, conçu pour vous aider à créer des applications en ligne de commande robustes avec facilité. Cette boîte à outils fournit une manière propre et structurée de créer des commandes CLI en utilisant TypeScript, Zod pour la validation, et Bun pour une exécution rapide. Elle intègre également un système complet pour interagir avec des modèles d'IA en local via Ollama, permettant d'enrichir vos commandes CLI avec des capacités d'intelligence artificielle de manière simple et efficace.
+Un kit de développement CLI TypeScript puissant et moderne propulsé par Bun, conçu pour créer des applications en ligne de commande robustes avec facilité. Cette boîte à outils fournit une manière propre et structurée de créer des commandes CLI en utilisant TypeScript, Zod pour la validation, et Bun pour une exécution rapide. Elle intègre un système complet d'IA qui supporte plusieurs fournisseurs de modèles (OpenAI, Anthropic, Ollama) permettant d'enrichir vos commandes CLI avec des capacités d'intelligence artificielle de manière simple et efficace.
 
 ## 🌟 Fonctionnalités
 
@@ -10,6 +10,7 @@ Un kit de développement CLI TypeScript puissant et moderne propulsé par Bun, c
 - **Propulsé par Bun**: Exploite la vitesse et les fonctionnalités modernes de Bun
 - **Architecture Propre**: Implémente l'architecture hexagonale avec les principes du domain-driven design
 - **Validation des Données**: Validation des schémas Zod intégrée pour une gestion robuste des commandes
+- **Support Multi-IA**: Intégration native avec OpenAI (GPT), Anthropic (Claude) et Ollama (modèles open source)
 - **Expérience Développeur**: Inclut la configuration ESLint et Prettier prête à l'emploi
 - **Sécurité des Types**: Configuration TypeScript stricte pour un code fiable
 - **Patterns Modernes**: Implémente les principes SOLID et les pratiques de code propre
@@ -220,6 +221,40 @@ BunCLI-Kit intègre un système flexible pour interagir avec différents modèle
 - **Formatters**: Système de formatage pour parser les réponses de l'IA
 - **Factory Pattern**: Création de modèles d'IA via le singleton `AiModelFactory`
 - **Support Streaming**: Capacités de streaming intégrées pour les réponses d'IA
+
+### Modèles d'IA Supportés
+
+BunCLI-Kit prend en charge plusieurs fournisseurs de modèles d'IA :
+
+#### OpenAI
+- Modèles GPT (3.5-turbo, GPT-4, etc.)
+- Support complet du streaming
+- Compatible avec les services Azure OpenAI et autres API compatibles OpenAI
+- Configuration via `OPENAI_API_KEY` et `OPENAI_BASE_URL`
+
+#### Anthropic
+- Modèles Claude (Claude 3 Opus, Sonnet, Haiku)
+- Support du streaming
+- Configuration via `ANTHROPIC_API_KEY`
+
+#### Ollama (Local)
+- Modèles open source (Mistral, Llama, CodeLlama, etc.)
+- Exécution locale des modèles
+- Support du streaming
+- Configuration via `OLLAMA_BASE_URL`
+
+Exemple d'utilisation avec différents modèles :
+
+```typescript
+// Utilisation d'OpenAI
+const openaiModel = this.aiModelService.createModel('openai', 'gpt-4');
+
+// Utilisation d'Anthropic
+const anthropicModel = this.aiModelService.createModel('anthropic', 'claude-3-opus-20240229');
+
+// Utilisation d'Ollama
+const ollamaModel = this.aiModelService.createModel('ollama', 'mistral');
+```
 
 ### Utilisation du AiModelService
 
